@@ -2,8 +2,11 @@ package com.sunfusheng.marqueeview;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.support.annotation.AnimRes;
+import android.support.annotation.FontRes;
+import android.support.v4.content.res.ResourcesCompat;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
@@ -42,11 +45,14 @@ public class MarqueeView extends ViewFlipper {
     private static final int DIRECTION_RIGHT_TO_LEFT = 2;
     private static final int DIRECTION_LEFT_TO_RIGHT = 3;
 
+    private Typeface typeface;
+
     @AnimRes
     private int inAnimResId = R.anim.anim_bottom_in;
     @AnimRes
     private int outAnimResId = R.anim.anim_top_out;
 
+    private int position;
     private List<? extends CharSequence> notices = new ArrayList<>();
     private OnItemClickListener onItemClickListener;
 
@@ -71,7 +77,10 @@ public class MarqueeView extends ViewFlipper {
             textSize = Utils.px2sp(context, textSize);
         }
         textColor = typedArray.getColor(R.styleable.MarqueeViewStyle_mvTextColor, textColor);
-
+        @FontRes int fontRes = typedArray.getResourceId(R.styleable.MarqueeViewStyle_mvFont, 0);
+        if (fontRes != 0) {
+            typeface = ResourcesCompat.getFont(context, fontRes);
+        }
         int gravityType = typedArray.getInt(R.styleable.MarqueeViewStyle_mvGravity, GRAVITY_LEFT);
         switch (gravityType) {
             case GRAVITY_LEFT:
@@ -218,7 +227,8 @@ public class MarqueeView extends ViewFlipper {
         if (notices == null || notices.isEmpty()) {
             throw new RuntimeException("The data source cannot be empty!");
         }
-        addView(createTextView(notices.get(0), 0));
+        position = 0;
+        addView(createTextView(notices.get(position)));
 
         if (notices.size() > 1) {
             setInAndOutAnimation(inAnimResId, outAnimResID);
@@ -237,11 +247,11 @@ public class MarqueeView extends ViewFlipper {
 
                 @Override
                 public void onAnimationEnd(Animation animation) {
-                    int position = getPosition(getCurrentView());
-                    if (++position >= notices.size()) {
+                    position++;
+                    if (position >= notices.size()) {
                         position = 0;
                     }
-                    View view = createTextView(notices.get(position), position);
+                    View view = createTextView(notices.get(position));
                     if (view.getParent() == null) {
                         addView(view);
                     }
@@ -255,13 +265,17 @@ public class MarqueeView extends ViewFlipper {
         }
     }
 
-    private TextView createTextView(CharSequence text, int realPosition) {
+    private TextView createTextView(CharSequence text) {
         TextView textView = (TextView) getChildAt((getDisplayedChild() + 1) % totalViewCount);
         if (textView == null) {
             textView = new TextView(getContext());
-            textView.setGravity(gravity);
+            if (typeface != null) {
+                textView.setTypeface(typeface);
+            }
+            textView.setGravity(gravity | Gravity.CENTER_VERTICAL);
             textView.setTextColor(textColor);
             textView.setTextSize(textSize);
+            textView.setIncludeFontPadding(false);
             textView.setSingleLine(singleLine);
             if (singleLine) {
                 textView.setMaxLines(1);
@@ -271,18 +285,18 @@ public class MarqueeView extends ViewFlipper {
                 @Override
                 public void onClick(View v) {
                     if (onItemClickListener != null) {
-                        onItemClickListener.onItemClick(getPosition(v), (TextView) v);
+                        onItemClickListener.onItemClick(getPosition(), (TextView) v);
                     }
                 }
             });
         }
         textView.setText(text);
-        textView.setTag(realPosition);
+        textView.setTag(position);
         return textView;
     }
 
-    private int getPosition(View view) {
-        return (int) view.getTag();
+    public int getPosition() {
+        return (int) getCurrentView().getTag();
     }
 
     public List<? extends CharSequence> getNotices() {
@@ -317,4 +331,7 @@ public class MarqueeView extends ViewFlipper {
         setOutAnimation(outAnim);
     }
 
+    public void setTypeface(Typeface typeface) {
+        this.typeface = typeface;
+    }
 }
